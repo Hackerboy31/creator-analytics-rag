@@ -2,3 +2,10 @@ venv/
 pycache/
 .env
 node_modules/
+database/
+.DS_Store
+*.mp3
+*.webm
+*.m4a
+*.part
+temp_audio*

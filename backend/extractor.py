@@ -1,4 +1,5 @@
 import os
+import uuid  # <-- Added for unique concurrent file names
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
@@ -8,8 +9,8 @@ from openai import OpenAI
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-def download_audio(video_url: str, output_filename: str = "temp_audio"):
-    """Downloads audio from ANY video URL (YouTube, Instagram)."""
+def download_audio(video_url: str, output_filename: str):
+    """Downloads audio from ANY video URL with a unique filename."""
     try:
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -47,7 +48,6 @@ def get_whisper_transcript(audio_path: str):
 def process_video(video_url: str):
     """Master function to extract metadata and transcript for ANY platform."""
     try:
-        # 1. Extract Metadata using yt-dlp
         ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
@@ -73,27 +73,26 @@ def process_video(video_url: str):
             "engagement_rate": round(engagement_rate, 2)
         }
 
-        # 2. Extract Transcript
         transcript_text = ""
         
-        # If YouTube, try the fast free method first
         if "youtube" in platform.lower():
             try:
                 transcript_list = YouTubeTranscriptApi.list_transcripts(metadata["video_id"])
                 transcript = transcript_list.find_transcript(['en']) if 'en' in transcript_list._manually_created_transcripts else transcript_list.find_generated_transcript(['en'])
                 transcript_text = " ".join([t['text'] for t in transcript.fetch()])
             except Exception:
-                pass # Fail silently, will fallback to audio download
+                pass 
 
-        # 3. Fallback to Audio Download + Whisper AI (For IG Reels or YT failures)
         if not transcript_text:
             print(f"Downloading audio for AI Transcription ({platform})...")
-            audio_file = download_audio(video_url)
+            # Create a unique file name for this specific thread
+            unique_filename = f"temp_audio_{uuid.uuid4().hex}"
+            audio_file = download_audio(video_url, unique_filename)
+            
             if audio_file:
                 transcript_text = get_whisper_transcript(audio_file)
-                # Cleanup the heavy audio file to save server space
                 if os.path.exists(audio_file):
-                    os.remove(audio_file)
+                    os.remove(audio_file) # Cleanup after success
             else:
                 transcript_text = "Failed to extract audio or transcript."
 
