@@ -125,7 +125,6 @@ function App() {
       </header>
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* LEFT PANEL */}
         <div className="flex flex-col gap-4">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-semibold mb-4">1. Process Videos</h2>
