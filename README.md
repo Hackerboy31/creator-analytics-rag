@@ -4,13 +4,15 @@ A full-stack AI application that compares YouTube videos/shorts by extracting au
 
 ## ✨ Features
 
-- **🎥 Dual Video Processing:** Input any two YouTube or Shorts URLs for instant analysis.
-- **🎙️ Lightning Fast Transcription:** Uses Groq's Whisper-large-v3 model to convert video audio to text instantly.
-- **📚 Local Vector Database:** Implements ChromaDB to chunk and store transcripts, automatically overwriting old sessions for clean data management.
-- **🧠 Advanced RAG Architecture:** Retrieves relevant context (chunks) and feeds it to **Llama-3.1-8b** for highly accurate, context-aware answers.
-- **🎯 Source Tracking:** AI responses include interactive source badges (e.g., Video A / Video B) to verify where the information came from.
-- **🎨 Sleek UI/UX:** A responsive React (Vite) dashboard built with Tailwind CSS, featuring metadata extraction cards and input safety locks.
-
+* 🎥 **Dual Video Processing:** Input any two YouTube, Shorts, or Instagram Reels URLs for instant comparative analysis.
+* 🎙️ **Lightning Fast Transcription:** Uses Groq's Whisper-large-v3 model to extract and convert video audio to text seamlessly.
+* 📊 **Deep Metadata & Engagement:** Automatically pulls creator details, views, likes, comments, and computes the True Engagement Rate.
+* 📚 **Local Vector Database:** Implements ChromaDB to chunk and store transcripts, automatically managing sessions for clean data.
+* 🧠 **Advanced RAG Architecture:** Retrieves relevant context (chunks) and feeds it to Llama-3.1-8b for highly accurate, context-aware answers.
+* ⚡ **Streaming Responses:** Provides real-time, ChatGPT-like typing effects for AI responses using FastAPI `StreamingResponse`.
+* 💬 **Stateful Chat Memory:** Maintains conversation history across turns, allowing users to ask follow-up questions naturally.
+* 🎯 **Source Tracking:** AI responses include interactive source citations (e.g., Video A / Video B) to verify where the information came from.
+* 🎨 **Sleek UI/UX:** A responsive React (Vite) dashboard built with Tailwind CSS, featuring modern UI components and input safety locks.
 ## 🛠️ Tech Stack
 
 **Frontend:**
