@@ -1,11 +1,32 @@
-venv/
-pycache/
+# API Keys & Secrets
 .env
-node_modules/
-database/
-.DS_Store
+backend/.env
+frontend/.env
+
+# Temp Audio & Video Files (User Added - Excellent!)
 *.mp3
 *.webm
 *.m4a
 *.part
 temp_audio*
+
+# Python & Backend Caches
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+
+# Database & Vector Store
+database/
+backend/database/
+chroma_db/
+
+# Node.js & Frontend
+node_modules/
+frontend/node_modules/
+dist/
+build/
+
+# OS Generated Files
+.DS_Store
