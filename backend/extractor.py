@@ -1,69 +1,101 @@
+import os
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
+from dotenv import load_dotenv
+from openai import OpenAI
 
-def get_youtube_data(video_url: str):
-    """
-    Extracts metadata and transcript from a YouTube video URL.
-    """
+# Load environment variables
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+def download_audio(video_url: str, output_filename: str = "temp_audio"):
+    """Downloads audio from ANY video URL (YouTube, Instagram)."""
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': f'{output_filename}.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'quiet': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
+        return f"{output_filename}.mp3"
+    except Exception as e:
+        print(f"Audio Download Error: {e}")
+        return None
+
+def get_whisper_transcript(audio_path: str):
+    """Uses OpenAI Whisper to transcribe the audio file."""
+    if not OPENAI_API_KEY or OPENAI_API_KEY == "your_openai_api_key_here":
+        return "[MOCK TRANSCRIPT] No OpenAI key found. This is a dummy transcript for testing Instagram/Audio logic without incurring costs."
+    
+    try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        with open(audio_path, "rb") as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file
+            )
+        return transcript.text
+    except Exception as e:
+        return f"Whisper AI Error: {str(e)}"
+
+def process_video(video_url: str):
+    """Master function to extract metadata and transcript for ANY platform."""
     try:
         # 1. Extract Metadata using yt-dlp
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-        }
-        
+        ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
             
+        platform = info.get('extractor_key', 'Unknown')
+        views = info.get('view_count') or 0
+        likes = info.get('like_count') or 0
+        comments = info.get('comment_count') or 0
+        
+        engagement_rate = ((likes + comments) / views * 100) if views > 0 else 0.0
+
         metadata = {
-            "platform": "YouTube",
+            "platform": platform,
             "video_id": info.get('id'),
             "creator": info.get('uploader'),
-            "follower_count": info.get('channel_follower_count'), # Subscribers
-            "views": info.get('view_count'),
-            "likes": info.get('like_count'),
-            "comments": info.get('comment_count'),
+            "follower_count": info.get('channel_follower_count', 0),
+            "views": views,
+            "likes": likes,
+            "comments": comments,
             "upload_date": info.get('upload_date'),
             "duration_seconds": info.get('duration'),
-            "hashtags": info.get('tags', [])
+            "hashtags": info.get('tags', []),
+            "engagement_rate": round(engagement_rate, 2)
         }
 
-        # 2. Extract Transcript using a more robust method
-        video_id = metadata["video_id"]
+        # 2. Extract Transcript
         transcript_text = ""
-        try:
-            # list_transcripts is much safer and handles auto-generated captions too
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            try:
-                # Pehle manual english subtitles try karo
-                transcript = transcript_list.find_transcript(['en'])
-            except:
-                # Agar manual nahi hai, toh auto-generated uthao
-                transcript = transcript_list.find_generated_transcript(['en'])
-                
-            transcript_data = transcript.fetch()
-            transcript_text = " ".join([t['text'] for t in transcript_data])
-            
-        except Exception as e:
-            # Agar koi object attribute error aaye library ki wajah se
-            try:
-                api = YouTubeTranscriptApi()
-                transcript_data = api.get_transcript(video_id)
-                transcript_text = " ".join([t['text'] for t in transcript_data])
-            except Exception as inner_e:
-                transcript_text = f"Could not fetch transcript: {str(inner_e)}"
-
-        # 3. Calculate Engagement Rate = (likes + comments) / views * 100
-        views = metadata.get("views") or 0
-        likes = metadata.get("likes") or 0
-        comments = metadata.get("comments") or 0
         
-        if views > 0:
-            engagement_rate = ((likes + comments) / views) * 100
-        else:
-            engagement_rate = 0.0
+        # If YouTube, try the fast free method first
+        if "youtube" in platform.lower():
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(metadata["video_id"])
+                transcript = transcript_list.find_transcript(['en']) if 'en' in transcript_list._manually_created_transcripts else transcript_list.find_generated_transcript(['en'])
+                transcript_text = " ".join([t['text'] for t in transcript.fetch()])
+            except Exception:
+                pass # Fail silently, will fallback to audio download
 
-        metadata["engagement_rate"] = round(engagement_rate, 2)
+        # 3. Fallback to Audio Download + Whisper AI (For IG Reels or YT failures)
+        if not transcript_text:
+            print(f"Downloading audio for AI Transcription ({platform})...")
+            audio_file = download_audio(video_url)
+            if audio_file:
+                transcript_text = get_whisper_transcript(audio_file)
+                # Cleanup the heavy audio file to save server space
+                if os.path.exists(audio_file):
+                    os.remove(audio_file)
+            else:
+                transcript_text = "Failed to extract audio or transcript."
 
         return {
             "status": "success",
@@ -73,17 +105,3 @@ def get_youtube_data(video_url: str):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-# Testing the function directly
-if __name__ == "__main__":
-    test_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # Example video
-    print("Extracting data... Please wait.")
-    result = get_youtube_data(test_url)
-    
-    # Printing formatted output so it's readable
-    print("\n--- METADATA ---")
-    for key, value in result['metadata'].items():
-        print(f"{key}: {value}")
-        
-    print("\n--- TRANSCRIPT (First 200 chars) ---")
-    print(result['transcript'][:200] + "..." if len(result['transcript']) > 200 else result['transcript'])
