@@ -50,6 +50,12 @@ def build_vector_store(video_a_data, video_b_data):
     # Make sure database directory exists
     db_dir = "./database/chroma_db"
     os.makedirs(db_dir, exist_ok=True)
+    
+    try:
+        old_db = Chroma(persist_directory=db_dir, embedding_function=embeddings)
+        old_db.delete_collection()
+    except Exception:
+        pass
 
     # Initialize ChromaDB and store vectors
     vector_store = Chroma.from_documents(

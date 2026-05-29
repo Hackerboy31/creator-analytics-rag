@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from extractor import process_video
@@ -7,6 +8,14 @@ from concurrent.futures import ThreadPoolExecutor
 from rag_pipeline import ask_question
 
 app = FastAPI(title="Creator Analytics RAG API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Frontend ko allow karne ke liye
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class VideoRequest(BaseModel):
     video_a_url: str
