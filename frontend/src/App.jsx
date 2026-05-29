@@ -13,19 +13,16 @@ import {
 import axios from "axios";
 
 function App() {
-  // States for Video Processing
   const [videoA, setVideoA] = useState("");
   const [videoB, setVideoB] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [dbStatus, setDbStatus] = useState("");
   const [extractedData, setExtractedData] = useState(null);
 
-  // States for Chat
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [isChatting, setIsChatting] = useState(false);
 
-  // Function 1: Process Videos
   const handleProcessVideos = async () => {
     if (!videoA || !videoB)
       return alert("Bhai, dono video URLs daalna zaroori hai!");
@@ -33,7 +30,7 @@ function App() {
     setIsProcessing(true);
     setDbStatus("");
     setExtractedData(null);
-    setChatHistory([]); // Clear old chat when new videos are processed
+    setChatHistory([]);
 
     try {
       const response = await axios.post(
@@ -46,7 +43,6 @@ function App() {
 
       setDbStatus(response.data.database.message);
 
-      // Save extracted AI data
       setExtractedData({
         videoA: response.data.video_a.metadata,
         videoB: response.data.video_b.metadata,
@@ -58,9 +54,7 @@ function App() {
     setIsProcessing(false);
   };
 
-  // Function 2: Send Chat Message
   const handleSendMessage = async () => {
-    // Agar message khali hai YA data extract nahi hua hai, toh return kar do
     if (!chatInput.trim() || !extractedData) return;
 
     const userMsg = chatInput;
@@ -91,7 +85,6 @@ function App() {
     setIsChatting(false);
   };
 
-  // Helper function to render a mini stats card
   const renderStatsCard = (title, data) => {
     if (!data) return null;
     return (
@@ -101,7 +94,7 @@ function App() {
         </h3>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-sm text-gray-700">
-            <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <User className="w-4 h-4 text-blue-500 shrink-0" />
             <span className="truncate w-full" title={data.creator}>
               {data.creator || "Unknown"}
             </span>
@@ -174,17 +167,15 @@ function App() {
                 )}
               </button>
 
-              {/* Status Message */}
               {dbStatus && (
                 <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                  <CheckCircle className="w-5 h-5 shrink-0" />
                   {dbStatus}
                 </div>
               )}
             </div>
           </div>
 
-          {/* EXTRACTED DATA CARDS */}
           {extractedData && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-2">
               <h2 className="text-sm font-semibold mb-3 text-gray-600">
@@ -198,8 +189,7 @@ function App() {
           )}
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-150">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-blue-500" />
             2. Ask AI
@@ -268,8 +258,6 @@ function App() {
           </div>
 
           <div className="flex gap-2">
-            {/* FIX: Input field ab unlocked hai, user type kar sakta hai. 
-                Bas jab AI reply kar raha ho tabhi disable hoga. */}
             <input
               type="text"
               value={chatInput}
@@ -279,7 +267,6 @@ function App() {
               disabled={isChatting}
               className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
-            {/* FIX: Send Button tab tak disable rahega jab tak data extract na ho */}
             <button
               onClick={handleSendMessage}
               disabled={!extractedData || isChatting}

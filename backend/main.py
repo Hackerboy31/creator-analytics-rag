@@ -2,7 +2,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from extractor import process_video
-from rag_pipeline import build_vector_store  # <-- Naya Import
+from rag_pipeline import build_vector_store
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from rag_pipeline import ask_question
@@ -11,7 +11,7 @@ app = FastAPI(title="Creator Analytics RAG API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Frontend ko allow karne ke liye
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,13 +47,12 @@ async def process_videos_endpoint(request: VideoRequest):
     if video_b_data["status"] == "error":
         raise HTTPException(status_code=400, detail=f"Error in Video B: {video_b_data.get('message')}")
 
-    # --- NAYA LOGIC: Vector DB mein data daalo ---
     print("Chunking and Storing into Vector DB...")
     db_result = build_vector_store(video_a_data, video_b_data)
 
     return {
         "status": "success",
-        "database": db_result,  # <-- Pata chalega DB mein kitne chunks gaye
+        "database": db_result,
         "video_a": video_a_data,
         "video_b": video_b_data
     }

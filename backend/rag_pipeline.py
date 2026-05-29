@@ -8,8 +8,6 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 import os
 
-# Initialize the open-source embedding model (FREE & Fast)
-# This will download a small model on the first run, making subsequent runs instant.
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 def build_vector_store(video_a_data, video_b_data):
@@ -19,11 +17,9 @@ def build_vector_store(video_a_data, video_b_data):
     """
     documents = []
     
-    # Helper function to process each video
     def process_transcript(video_data, video_tag):
         if video_data.get("status") == "success" and video_data.get("transcript"):
             text = video_data["transcript"]
-            # Tag the chunk so the LLM knows which video it belongs to
             meta = {
                 "video_tag": video_tag,
                 "creator": video_data["metadata"].get("creator", "Unknown"),
@@ -37,8 +33,6 @@ def build_vector_store(video_a_data, video_b_data):
     if not documents:
         return {"status": "error", "message": "No valid transcripts to chunk."}
 
-    # Chunking Strategy: 
-    # Using 500 characters so the LLM gets enough context, with 50 chars overlap
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -47,7 +41,6 @@ def build_vector_store(video_a_data, video_b_data):
     
     chunked_docs = text_splitter.split_documents(documents)
 
-    # Make sure database directory exists
     db_dir = "./database/chroma_db"
     os.makedirs(db_dir, exist_ok=True)
     
@@ -57,7 +50,6 @@ def build_vector_store(video_a_data, video_b_data):
     except Exception:
         pass
 
-    # Initialize ChromaDB and store vectors
     vector_store = Chroma.from_documents(
         documents=chunked_docs,
         embedding=embeddings,
@@ -73,26 +65,21 @@ def build_vector_store(video_a_data, video_b_data):
 def ask_question(question: str):
     """Queries the ChromaDB and uses an LLM to answer based on the context using modern LCEL."""
     try:
-        # Check if Groq API Key exists
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             return {"status": "error", "message": "Bhai, Groq API Key is missing! Please add it to your .env file."}
 
-        # Initialize Free & Super Fast Llama 3 via Groq
         llm = ChatGroq(
             model_name="llama-3.1-8b-instant", 
             temperature=0.2, 
             api_key=api_key
         )
         
-        # Connect to the local Vector DB
         db_dir = "./database/chroma_db"
         vector_store = Chroma(persist_directory=db_dir, embedding_function=embeddings)
         
-        # Retrieve top 4 most relevant chunks
         retriever = vector_store.as_retriever(search_kwargs={"k": 4})
         
-        # Set up the modern AI Prompt
         template = """You are an expert content analytics assistant for creators. 
         Use the following retrieved context to answer the user's question about two videos. 
         If the information is not in the context, just say you don't know based on the provided videos. 
@@ -107,18 +94,15 @@ def ask_question(question: str):
         def format_docs(docs):
             return "\n\n".join(f"[{doc.metadata.get('video_tag', 'Unknown')}] {doc.page_content}" for doc in docs)
         
-        # Build the modern LCEL chain
         rag_chain = (
             {"context": retriever | format_docs, "question": RunnablePassthrough()}
             | prompt
             | llm
             | StrOutputParser()
         )
-        
-        # 1. Invoke the chain to get the answer
+
         answer = rag_chain.invoke(question)
         
-        # 2. Get the sources separately to display in the UI
         retrieved_docs = retriever.invoke(question)
         source_list = []
         for doc in retrieved_docs:

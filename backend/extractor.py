@@ -1,10 +1,10 @@
 import os
-import uuid  # <-- Added for unique concurrent file names
+import uuid
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
 from groq import Groq
-# Load environment variables
+
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -85,14 +85,13 @@ def process_video(video_url: str):
 
         if not transcript_text:
             print(f"Downloading audio for AI Transcription ({platform})...")
-            # Create a unique file name for this specific thread
             unique_filename = f"temp_audio_{uuid.uuid4().hex}"
             audio_file = download_audio(video_url, unique_filename)
             
             if audio_file:
                 transcript_text = get_whisper_transcript(audio_file)
                 if os.path.exists(audio_file):
-                    os.remove(audio_file) # Cleanup after success
+                    os.remove(audio_file)
             else:
                 transcript_text = "Failed to extract audio or transcript."
 
