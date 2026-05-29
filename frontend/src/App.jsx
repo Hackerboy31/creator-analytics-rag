@@ -9,6 +9,8 @@ import {
   User,
   Eye,
   ThumbsUp,
+  MessageCircle,
+  TrendingUp,
 } from "lucide-react";
 import axios from "axios";
 
@@ -63,28 +65,72 @@ function App() {
     setIsChatting(true);
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/api/chat", {
-        message: userMsg,
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "ai", text: "", sources: [] },
+      ]);
+
+      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMsg,
+          chat_history: chatHistory,
+        }),
       });
 
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: response.data.answer,
-          sources: response.data.sources,
-        },
-      ]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+
+      let aiFullText = "";
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunkText = decoder.decode(value, { stream: true });
+          const lines = chunkText
+            .split("\n")
+            .filter((line) => line.trim() !== "");
+
+          for (const line of lines) {
+            const parsed = JSON.parse(line);
+
+            if (parsed.type === "sources") {
+              setChatHistory((prev) => {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1].sources = parsed.data;
+                return newHistory;
+              });
+            } else if (parsed.type === "chunk") {
+              aiFullText += parsed.data;
+              setChatHistory((prev) => {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1].text = aiFullText;
+                return newHistory;
+              });
+            } else if (parsed.type === "error") {
+              setChatHistory((prev) => {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1].text =
+                  "Error: " + parsed.data;
+                return newHistory;
+              });
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error(error);
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "ai", text: "Error fetching answer." },
-      ]);
+      setChatHistory((prev) => {
+        const newHistory = [...prev];
+        newHistory[newHistory.length - 1].text = "Error fetching answer.";
+        return newHistory;
+      });
     }
     setIsChatting(false);
   };
-
   const renderStatsCard = (title, data) => {
     if (!data) return null;
     return (
@@ -101,11 +147,29 @@ function App() {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <Eye className="w-4 h-4 text-green-500 flex-shrink-0" />
-            <span>{data.views ? data.views.toLocaleString() : "N/A"}</span>
+            <span>
+              {data.views != null ? data.views.toLocaleString() : "N/A"}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <ThumbsUp className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-            <span>{data.likes ? data.likes.toLocaleString() : "N/A"}</span>
+            <span>
+              {data.likes != null ? data.likes.toLocaleString() : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <MessageCircle className="w-4 h-4 text-purple-500 flex-shrink-0" />
+            <span>
+              {data.comments != null ? data.comments.toLocaleString() : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <TrendingUp className="w-4 h-4 text-orange-500 flex-shrink-0" />
+            <span className="font-semibold text-green-600">
+              {data.engagement_rate != null
+                ? `${data.engagement_rate}%`
+                : "N/A"}
+            </span>
           </div>
         </div>
       </div>
@@ -188,7 +252,7 @@ function App() {
           )}
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-150">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-blue-500" />
             2. Ask AI

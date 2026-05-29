@@ -53,7 +53,7 @@ def process_video(video_url: str):
             info = ydl.extract_info(video_url, download=False)
             
         platform = info.get('extractor_key', 'Unknown')
-        views = info.get('view_count') or 0
+        views = info.get('view_count') or info.get('play_count') or 0
         likes = info.get('like_count') or 0
         comments = info.get('comment_count') or 0
         

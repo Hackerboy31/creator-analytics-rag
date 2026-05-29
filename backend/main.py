@@ -1,11 +1,12 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from typing import List, Dict, Optional, Any
 from extractor import process_video
-from rag_pipeline import build_vector_store
+from rag_pipeline import build_vector_store, ask_question_stream
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from rag_pipeline import ask_question
 
 app = FastAPI(title="Creator Analytics RAG API")
 
@@ -59,14 +60,14 @@ async def process_videos_endpoint(request: VideoRequest):
     
 class ChatRequest(BaseModel):
     message: str
+    chat_history: Optional[List[Dict[str, Any]]] = [] 
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
     """
-    Takes a user question and queries the RAG pipeline.
+    Takes a user question and queries the RAG pipeline, streaming the response.
     """
-    response = ask_question(request.message)
-    if response["status"] == "error":
-        raise HTTPException(status_code=500, detail=response["message"])
-        
-    return response
+    return StreamingResponse(
+        ask_question_stream(request.message, request.chat_history),
+        media_type="application/x-ndjson"
+    )

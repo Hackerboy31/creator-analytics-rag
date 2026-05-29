@@ -1,5 +1,5 @@
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_groq import ChatGroq
@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 import os
+import json
 
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
@@ -62,12 +63,13 @@ def build_vector_store(video_a_data, video_b_data):
         "db_path": db_dir
     }
     
-def ask_question(question: str):
-    """Queries the ChromaDB and uses an LLM to answer based on the context using modern LCEL."""
+def ask_question_stream(question: str, chat_history: list = None):
+    """Queries ChromaDB and yields streaming JSON chunks for a typing effect."""
     try:
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
-            return {"status": "error", "message": "Bhai, Groq API Key is missing! Please add it to your .env file."}
+            yield json.dumps({"type": "error", "data": "Bhai, Groq API Key is missing!"}) + "\n"
+            return
 
         llm = ChatGroq(
             model_name="llama-3.1-8b-instant", 
@@ -80,10 +82,22 @@ def ask_question(question: str):
         
         retriever = vector_store.as_retriever(search_kwargs={"k": 4})
         
+        history_str = ""
+        if chat_history:
+            for msg in chat_history[-6:]:
+                role = msg.get("role", "user").capitalize()
+                content = msg.get("text", msg.get("content", ""))
+                history_str += f"{role}: {content}\n"
+        else:
+            history_str = "No previous history."
+        
         template = """You are an expert content analytics assistant for creators. 
-        Use the following retrieved context to answer the user's question about two videos. 
+        Use the following retrieved context and Chat History to answer the user's question about two videos. 
         If the information is not in the context, just say you don't know based on the provided videos. 
         Always try to cite your sources (e.g., 'According to Video A...', 'Based on Video B').
+
+        Chat History:
+        {history}
 
         Context: {context}
 
@@ -94,15 +108,6 @@ def ask_question(question: str):
         def format_docs(docs):
             return "\n\n".join(f"[{doc.metadata.get('video_tag', 'Unknown')}] {doc.page_content}" for doc in docs)
         
-        rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
-            | prompt
-            | llm
-            | StrOutputParser()
-        )
-
-        answer = rag_chain.invoke(question)
-        
         retrieved_docs = retriever.invoke(question)
         source_list = []
         for doc in retrieved_docs:
@@ -112,10 +117,24 @@ def ask_question(question: str):
                 "text_snippet": doc.page_content[:100] + "..." 
             })
             
-        return {
-            "status": "success",
-            "answer": answer,
-            "sources": source_list
-        }
+        yield json.dumps({"type": "sources", "data": source_list}) + "\n"
+
+        context_str = format_docs(retrieved_docs)
+        rag_chain = (
+            {
+                "context": lambda x: context_str, 
+                "question": RunnablePassthrough(),
+                "history": lambda x: history_str
+            }
+            | prompt
+            | llm
+            | StrOutputParser()
+        )
+
+        for chunk in rag_chain.stream(question):
+            yield json.dumps({"type": "chunk", "data": chunk}) + "\n"
+
+        yield json.dumps({"type": "done"}) + "\n"
+
     except Exception as e:
-        return {"status": "error", "message": f"Server Error: {str(e)}"}
+        yield json.dumps({"type": "error", "data": f"Server Error: {str(e)}"}) + "\n"
