@@ -3,11 +3,10 @@ import uuid  # <-- Added for unique concurrent file names
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
-from openai import OpenAI
-
+from groq import Groq
 # Load environment variables
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def download_audio(video_url: str, output_filename: str):
     """Downloads audio from ANY video URL with a unique filename."""
@@ -30,20 +29,21 @@ def download_audio(video_url: str, output_filename: str):
         return None
 
 def get_whisper_transcript(audio_path: str):
-    """Uses OpenAI Whisper to transcribe the audio file."""
-    if not OPENAI_API_KEY or OPENAI_API_KEY == "your_openai_api_key_here":
-        return "[MOCK TRANSCRIPT] No OpenAI key found. This is a dummy transcript for testing Instagram/Audio logic without incurring costs."
+    """Uses Groq's blazingly fast and FREE Whisper model to transcribe audio."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return "[MOCK TRANSCRIPT] Groq API key missing in .env file."
     
     try:
-        client = OpenAI(api_key=OPENAI_API_KEY)
+        client = Groq(api_key=api_key)
         with open(audio_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
-                model="whisper-1", 
-                file=audio_file
+                model="whisper-large-v3", 
+                file=(audio_path, audio_file.read())
             )
         return transcript.text
     except Exception as e:
-        return f"Whisper AI Error: {str(e)}"
+        return f"Groq Whisper AI Error: {str(e)}"
 
 def process_video(video_url: str):
     """Master function to extract metadata and transcript for ANY platform."""

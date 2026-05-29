@@ -2,7 +2,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -67,13 +67,17 @@ def build_vector_store(video_a_data, video_b_data):
 def ask_question(question: str):
     """Queries the ChromaDB and uses an LLM to answer based on the context using modern LCEL."""
     try:
-        # Check if API Key exists before doing anything
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key == "your_openai_api_key_here":
-            return {"status": "error", "message": "Bhai, OpenAI API Key is missing! Please add it to your .env file."}
+        # Check if Groq API Key exists
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            return {"status": "error", "message": "Bhai, Groq API Key is missing! Please add it to your .env file."}
 
-        # Initialize LLM
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, api_key=api_key)
+        # Initialize Free & Super Fast Llama 3 via Groq
+        llm = ChatGroq(
+            model_name="llama-3.1-8b-instant", 
+            temperature=0.2, 
+            api_key=api_key
+        )
         
         # Connect to the local Vector DB
         db_dir = "./database/chroma_db"
@@ -94,7 +98,6 @@ def ask_question(question: str):
         """
         prompt = ChatPromptTemplate.from_template(template)
         
-        # Format documents so LLM knows which chunk belongs to which video
         def format_docs(docs):
             return "\n\n".join(f"[{doc.metadata.get('video_tag', 'Unknown')}] {doc.page_content}" for doc in docs)
         
@@ -116,7 +119,7 @@ def ask_question(question: str):
             source_list.append({
                 "video_tag": doc.metadata.get("video_tag"),
                 "creator": doc.metadata.get("creator"),
-                "text_snippet": doc.page_content[:100] + "..." # First 100 chars
+                "text_snippet": doc.page_content[:100] + "..." 
             })
             
         return {
