@@ -9,3 +9,4 @@ sentence-transformers
 python-dotenv
 pydantic
 youtube-transcript-api
+langchain-huggingface
